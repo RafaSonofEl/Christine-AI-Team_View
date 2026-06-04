@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Christine Team View</title>
+    <meta
+      name="description"
+      content="Internal ops console for Christine: routing, leads, CRM, SMS, and hypercare."
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090b;
+        --panel: #111113;
+        --panel-2: #151518;
+        --border: #27272a;
+        --text: #fafafa;
+        --muted: #a1a1aa;
+        --accent: #22d3ee;
+        --accent-2: #155e75;
+        --good: #34d399;
+        --warn: #fbbf24;
+        --bad: #f87171;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+      body { min-height: 100vh; }
+      .wrap { max-width: 1440px; margin: 0 auto; }
+      .topbar { padding: 18px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #0b0b0f, #09090b); }
+      .title { font-size: 28px; font-weight: 700; margin: 0; }
+      .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 16px 20px; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+      .metric-label { color: var(--muted); font-size: 13px; }
+      .metric-value { font-size: 34px; font-weight: 700; margin-top: 6px; }
+      .layout { display: grid; grid-template-columns: 320px 1fr; gap: 14px; padding: 0 20px 20px; }
+      .sessions { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px; height: calc(100vh - 170px); overflow: auto; }
+      .sessions h2, .detail h2, .detail h3 { margin: 0; }
+      .sessions h2 { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+      .session-btn {
+        width: 100%;
+        text-align: left;
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+      .session-btn.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .session-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+      .session-tag { font-size: 12px; color: var(--muted); }
+      .detail { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; height: calc(100vh - 170px); overflow: auto; }
+      .header-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+      .customer-name { font-size: 22px; font-weight: 700; margin: 0; }
+      .customer-phone { color: var(--muted); margin-top: 4px; font-size: 14px; }
+      .tag {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid var(--accent-2); background: #082f49;
+        color: #cffafe; padding: 8px 12px; border-radius: 999px; font-size: 12px; white-space: nowrap;
+      }
+      .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      .info {
+        background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+      }
+      .info-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+      .info-value { font-size: 14px; margin-top: 6px; }
+      .section { margin-top: 18px; }
+      .section h3 { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+      .message, .tool {
+        background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px;
+      }
+      .role { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+      .content { font-size: 14px; margin-top: 6px; line-height: 1.6; }
+      .tool-head { display:flex; justify-content:space-between; gap:10px; }
+      .status.ok { color: var(--good); }
+      .status.error { color: var(--bad); }
+      pre {
+        margin: 10px 0 0;
+        padding: 10px;
+        background: #09090b;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: auto;
+        color: #d4d4d8;
+        font-size: 12px;
+      }
+      @media (max-width: 1024px) {
+        .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .layout { grid-template-columns: 1fr; }
+        .sessions, .detail { height: auto; min-height: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <h1 class="title">Christine Team View</h1>
+        <p class="subtitle">Internal ops console for routing, leads, CRM, SMS, and hypercare.</p>
+      </div>
+
+      <div class="metrics">
+        <div class="card"><div class="metric-label">Sessions</div><div class="metric-value" id="m-sessions">0</div></div>
+        <div class="card"><div class="metric-label">Leads</div><div class="metric-value" id="m-leads">0</div></div>
+        <div class="card"><div class="metric-label">Escalations</div><div class="metric-value" id="m-escalations">0</div></div>
+        <div class="card"><div class="metric-label">SMS Confirmed</div><div class="metric-value" id="m-sms">0</div></div>
+      </div>
+
+      <div class="layout">
+        <aside class="sessions">
+          <h2>Sessions</h2>
+          <div id="session-list"></div>
+        </aside>
+
+        <main class="detail" id="detail">
+          <div class="header-row">
+            <div>
+              <h2 class="customer-name" id="customer-name">Select a session</h2>
+              <div class="customer-phone" id="customer-phone">No session selected</div>
+            </div>
+            <div class="tag" id="routing-tag">No tag</div>
+          </div>
+
+          <div class="info-grid" id="info-grid"></div>
+
+          <div class="section">
+            <h3>Conversation</h3>
+            <div id="messages"></div>
+          </div>
+
+          <div class="section">
+            <h3>Tool Results</h3>
+            <div id="tools"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      const now = new Date().toISOString();
+
+      const sessions = [
+        {
+          session_id: "sess_001",
+          created_at: now,
+          updated_at: now,
+          channel: "widget",
+          customer_name: "Kerric",
+          customer_phone: "(555) 111-2222",
+          routing_tag: "RES_HOT",
+          lead: {
+            lead_id: "lead_001",
+            created_at: now,
+            contact_name: "Kerric",
+            contact_phone: "(555) 111-2222",
+            facility_id: "BSS-TOPEKA-001",
+            facility_name: "Better Self Storage Topeka",
+            metro: "Topeka",
+            state: "KS",
+            storage_type: "self_storage",
+            timing: "this week",
+            size: "10x10",
+            routing_tag: "RES_HOT",
+            source: "widget",
+            status: "sent_to_hubspot"
+          },
+          tool_results: [
+            {
+              tool_name: "lookup_location_data",
+              status: "ok",
+              source: "cubby_mock",
+              created_at: now,
+              message: "Resolved BSS-TOPEKA-001",
+              payload: { facility_id: "BSS-TOPEKA-001" }
+            },
+            {
+              tool_name: "check_unit_availability",
+              status: "ok",
+              source: "cubby_mock",
+              created_at: now,
+              message: "10x10 available",
+              payload: { available_units: 3, monthly_rate: 109 }
+            },
+            {
+              tool_name: "hubspot.create_lead",
+              status: "ok",
+              source: "hubspot",
+              created_at: now,
+              message: "Lead written to HubSpot",
+              payload: { lead_id: "lead_001" }
+            },
+            {
+              tool_name: "twilio.send_sms_confirmation",
+              status: "ok",
+              source: "twilio",
+              created_at: now,
+              message: "Confirmation sent to verified callback number",
+              payload: { phone: "(555) 111-2222" }
+            },
+            {
+              tool_name: "datadog.event",
+              status: "ok",
+              source: "datadog",
+              created_at: now,
+              message: "Lead session recorded",
+              payload: { tag: "RES_HOT" }
+            }
+          ],
+          messages: [
+            { role: "user", content: "Do you have a 10x10 in Topeka?", created_at: now },
+            { role: "assistant", content: "Yes — I found availability and can have someone reach out to you.", created_at: now }
+          ],
+          status: "open"
+        },
+        {
+          session_id: "sess_002",
+          created_at: now,
+          updated_at: now,
+          channel: "widget",
+          customer_name: "Rayan",
+          customer_phone: "(555) 333-4444",
+          routing_tag: "ESCALATE_SECURITY",
+          tool_results: [
+            {
+              tool_name: "flag_escalation",
+              status: "ok",
+              source: "system",
+              created_at: now,
+              message: "Security event flagged in Team View",
+              payload: { severity: "high" }
+            },
+            {
+              tool_name: "datadog.event",
+              status: "ok",
+              source: "datadog",
+              created_at: now,
+              message: "Escalation event recorded",
+              payload: { tag: "ESCALATE_SECURITY" }
+            }
+          ],
+          messages: [
+            { role: "user", content: "Someone broke into my unit.", created_at: now },
+            { role: "assistant", content: "I’m sorry that happened. I’m flagging this for the team now.", created_at: now }
+          ],
+          status: "escalated"
+        }
+      ];
+
+      let selectedId = sessions[0]?.session_id || null;
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+        }[c]));
+      }
+
+      function renderMetrics() {
+        document.getElementById("m-sessions").textContent = sessions.length;
+        document.getElementById("m-leads").textContent = sessions.filter(s => s.lead).length;
+        document.getElementById("m-escalations").textContent = sessions.filter(s => s.status === "escalated").length;
+        document.getElementById("m-sms").textContent = sessions.filter(s => s.tool_results.some(t => t.tool_name === "twilio.send_sms_confirmation" && t.status === "ok")).length;
+      }
+
+      function renderList() {
+        const el = document.getElementById("session-list");
+        el.innerHTML = sessions.map(s => `
+          <button class="session-btn ${s.session_id === selectedId ? "active" : ""}" data-session="${s.session_id}">
+            <div class="session-name">${escapeHtml(s.customer_name || "Unnamed lead")}</div>
+            <div class="session-tag">${escapeHtml(s.routing_tag || "unrouted")} · ${escapeHtml(s.status)}</div>
+          </button>
+        `).join("");
+
+        el.querySelectorAll("[data-session]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            selectedId = btn.getAttribute("data-session");
+            renderAll();
+          });
+        });
+      }
+
+      function renderDetail() {
+        const s = sessions.find(x => x.session_id === selectedId) || sessions[0];
+        if (!s) return;
+
+        document.getElementById("customer-name").textContent = s.customer_name || "Unnamed lead";
+        document.getElementById("customer-phone").textContent = s.customer_phone || "No phone";
+        document.getElementById("routing-tag").textContent = s.routing_tag || "No tag";
+
+        const info = [
+          ["Facility", s.lead?.facility_name || "—"],
+          ["Metro", s.lead?.metro || "—"],
+          ["Storage Type", s.lead?.storage_type || "—"],
+          ["Timing", s.lead?.timing || "—"],
+          ["Lead Status", s.lead?.status || "—"],
+          ["Session Status", s.status || "—"],
+        ];
+        document.getElementById("info-grid").innerHTML = info.map(([label, value]) => `
+          <div class="info">
+            <div class="info-label">${escapeHtml(label)}</div>
+            <div class="info-value">${escapeHtml(value)}</div>
+          </div>
+        `).join("");
+
+        document.getElementById("messages").innerHTML = s.messages.map(m => `
+          <div class="message">
+            <div class="role">${escapeHtml(m.role)}</div>
+            <div class="content">${escapeHtml(m.content)}</div>
+          </div>
+        `).join("");
+
+        document.getElementById("tools").innerHTML = s.tool_results.length ? s.tool_results.map(t => `
+          <div class="tool">
+            <div class="tool-head">
+              <div><strong>${escapeHtml(t.tool_name)}</strong></div>
+              <div class="status ${escapeHtml(t.status)}">${escapeHtml(t.status)}</div>
+            </div>
+            <div class="content">${escapeHtml(t.message || t.error || "—")}</div>
+            ${t.payload ? `<pre>${escapeHtml(JSON.stringify(t.payload, null, 2))}</pre>` : ""}
+          </div>
+        `).join("") : `<div class="tool">No tool calls yet.</div>`;
+      }
+
+      function renderAll() {
+        renderMetrics();
+        renderList();
+        renderDetail();
+      }
+
+      renderAll();
+    </script>
+  </body>
+</html>
