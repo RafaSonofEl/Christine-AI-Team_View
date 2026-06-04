@@ -4,331 +4,378 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Christine Team View</title>
-    <meta
-      name="description"
-      content="Internal ops console for Christine: routing, leads, CRM, SMS, and hypercare."
-    />
+    <meta name="description" content="Internal ops console for Christine: live chat, routing logic, leads, CRM, SMS, and observability." />
     <style>
       :root {
         color-scheme: dark;
-        --bg: #09090b;
-        --panel: #111113;
-        --panel-2: #151518;
-        --border: #27272a;
-        --text: #fafafa;
-        --muted: #a1a1aa;
-        --accent: #22d3ee;
-        --accent-2: #155e75;
-        --good: #34d399;
-        --warn: #fbbf24;
-        --bad: #f87171;
+        --bg: #09090b; --panel: #111113; --panel-2: #151518; --border: #27272a;
+        --text: #fafafa; --muted: #a1a1aa; --accent: #22d3ee; --accent-2: #155e75;
+        --good: #34d399; --warn: #fbbf24; --bad: #f87171;
+        --hot: #f87171; --warm: #fbbf24; --cool: #22d3ee;
+        --forest: #2F5D46; --gold: #C89A43;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
-      body { min-height: 100vh; }
-      .wrap { max-width: 1440px; margin: 0 auto; }
-      .topbar { padding: 18px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #0b0b0f, #09090b); }
-      .title { font-size: 28px; font-weight: 700; margin: 0; }
-      .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
-      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 16px 20px; }
-      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
-      .metric-label { color: var(--muted); font-size: 13px; }
-      .metric-value { font-size: 34px; font-weight: 700; margin-top: 6px; }
-      .layout { display: grid; grid-template-columns: 320px 1fr; gap: 14px; padding: 0 20px 20px; }
-      .sessions { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px; height: calc(100vh - 170px); overflow: auto; }
-      .sessions h2, .detail h2, .detail h3 { margin: 0; }
-      .sessions h2 { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
-      .session-btn {
-        width: 100%;
-        text-align: left;
-        background: var(--panel-2);
-        color: var(--text);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 10px;
-        cursor: pointer;
-      }
-      .session-btn.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-      .session-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-      .session-tag { font-size: 12px; color: var(--muted); }
-      .detail { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; height: calc(100vh - 170px); overflow: auto; }
+      .topbar { padding: 16px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #0b0b0f, #09090b); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+      .title { font-size: 24px; font-weight: 700; margin: 0; }
+      .subtitle { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .conn { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+      .dot.live { background: var(--good); box-shadow: 0 0 8px var(--good); }
+      .dot.mock { background: var(--warn); }
+
+      .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 20px; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+      .metric-label { color: var(--muted); font-size: 12px; }
+      .metric-value { font-size: 30px; font-weight: 700; margin-top: 4px; }
+
+      .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; padding: 0 20px 20px; }
+      .col { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; height: calc(100vh - 210px); display: flex; flex-direction: column; overflow: hidden; }
+      .col-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+      .col-head h2 { margin: 0; font-size: 14px; }
+      .col-head .hint { color: var(--muted); font-size: 12px; }
+
+      /* CHAT */
+      .chat-channels { display: flex; gap: 4px; }
+      .chan-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); }
+      .chan-btn.active { border-color: var(--accent); color: var(--accent); }
+      .messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+      .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; }
+      .msg.user { align-self: flex-end; background: #1a2430; border: 1px solid #2a3d52; border-bottom-right-radius: 4px; }
+      .msg.assistant { align-self: flex-start; background: #161820; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+      .msg .who { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+      .typing { align-self: flex-start; color: var(--muted); font-size: 13px; padding: 8px 14px; }
+      .empty { color: var(--muted); font-size: 14px; text-align: center; margin: auto; padding: 30px; line-height: 1.7; }
+      .quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+      .quick button { padding: 6px 12px; border-radius: 16px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+      .quick button:hover { border-color: var(--accent); color: var(--accent); }
+      .input-row { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+      .input-row textarea { flex: 1; resize: none; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; min-height: 42px; max-height: 120px; outline: none; }
+      .input-row button.send { width: 42px; border-radius: 10px; border: none; background: var(--forest); color: var(--gold); font-size: 18px; cursor: pointer; }
+      .input-row button.send:disabled { opacity: .5; cursor: not-allowed; }
+
+      /* CONSOLE */
+      .console { flex: 1; overflow: auto; padding: 16px; }
       .header-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-      .customer-name { font-size: 22px; font-weight: 700; margin: 0; }
-      .customer-phone { color: var(--muted); margin-top: 4px; font-size: 14px; }
-      .tag {
-        display: inline-flex; align-items: center; gap: 8px;
-        border: 1px solid var(--accent-2); background: #082f49;
-        color: #cffafe; padding: 8px 12px; border-radius: 999px; font-size: 12px; white-space: nowrap;
-      }
-      .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
-      .info {
-        background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 12px;
-      }
-      .info-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-      .info-value { font-size: 14px; margin-top: 6px; }
+      .customer-name { font-size: 20px; font-weight: 700; margin: 0; }
+      .customer-phone { color: var(--muted); margin-top: 4px; font-size: 13px; }
+      .tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent-2); background: #082f49; color: #cffafe; padding: 7px 12px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+      .tag.hot { border-color: var(--hot); background: #2a1212; color: #fecaca; }
+      .tag.warm { border-color: var(--warm); background: #2a2210; color: #fde68a; }
+      .tag.cool { border-color: var(--cool); background: #082f49; color: #cffafe; }
+      .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+      .info { background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+      .info-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+      .info-value { font-size: 14px; margin-top: 5px; word-break: break-word; }
       .section { margin-top: 18px; }
-      .section h3 { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
-      .message, .tool {
-        background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px;
-      }
-      .role { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-      .content { font-size: 14px; margin-top: 6px; line-height: 1.6; }
-      .tool-head { display:flex; justify-content:space-between; gap:10px; }
-      .status.ok { color: var(--good); }
-      .status.error { color: var(--bad); }
-      pre {
-        margin: 10px 0 0;
-        padding: 10px;
-        background: #09090b;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        overflow: auto;
-        color: #d4d4d8;
-        font-size: 12px;
-      }
+      .section h3 { color: var(--muted); font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .05em; }
+      .tool, .event { background: #0b0b0f; border: 1px solid var(--border); border-radius: 12px; padding: 11px; margin-bottom: 9px; }
+      .tool-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+      .tool-name { font-weight: 700; font-size: 13px; }
+      .tool-src { font-size: 11px; color: var(--muted); }
+      .content { font-size: 13px; margin-top: 6px; line-height: 1.5; color: #d4d4d8; }
+      .status { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+      .status.ok { color: var(--good); background: #06281e; }
+      .status.error { color: var(--bad); background: #2a1212; }
+      .status.duplicate, .status.mock, .status.no_tag { color: var(--warn); background: #2a2210; }
+      pre { margin: 9px 0 0; padding: 9px; background: #09090b; border: 1px solid var(--border); border-radius: 10px; overflow: auto; color: #d4d4d8; font-size: 11px; }
+      .event-time { font-size: 10px; color: var(--muted); font-family: monospace; }
+      .log { font-family: monospace; font-size: 11px; }
+      .log .hot { color: var(--hot); } .log .warm { color: var(--warm); } .log .cool { color: var(--cool); }
+
       @media (max-width: 1024px) {
-        .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
         .layout { grid-template-columns: 1fr; }
-        .sessions, .detail { height: auto; min-height: 0; }
+        .col { height: auto; min-height: 460px; }
       }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="topbar">
+    <div class="topbar">
+      <div>
         <h1 class="title">Christine Team View</h1>
-        <p class="subtitle">Internal ops console for routing, leads, CRM, SMS, and hypercare.</p>
+        <p class="subtitle">Live ops console — watch Christine qualify, route, and action leads in real time.</p>
       </div>
+      <div class="conn"><span class="dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></div>
+    </div>
 
-      <div class="metrics">
-        <div class="card"><div class="metric-label">Sessions</div><div class="metric-value" id="m-sessions">0</div></div>
-        <div class="card"><div class="metric-label">Leads</div><div class="metric-value" id="m-leads">0</div></div>
-        <div class="card"><div class="metric-label">Escalations</div><div class="metric-value" id="m-escalations">0</div></div>
-        <div class="card"><div class="metric-label">SMS Confirmed</div><div class="metric-value" id="m-sms">0</div></div>
-      </div>
+    <div class="metrics">
+      <div class="card"><div class="metric-label">Turns</div><div class="metric-value" id="m-turns">0</div></div>
+      <div class="card"><div class="metric-label">Tool Calls</div><div class="metric-value" id="m-tools">0</div></div>
+      <div class="card"><div class="metric-label">Leads</div><div class="metric-value" id="m-leads">0</div></div>
+      <div class="card"><div class="metric-label">Escalations</div><div class="metric-value" id="m-escalations">0</div></div>
+      <div class="card"><div class="metric-label">SMS Confirmed</div><div class="metric-value" id="m-sms">0</div></div>
+    </div>
 
-      <div class="layout">
-        <aside class="sessions">
-          <h2>Sessions</h2>
-          <div id="session-list"></div>
-        </aside>
+    <div class="layout">
+      <!-- LEFT: live Christine chat (identical agent experience) -->
+      <section class="col">
+        <div class="col-head">
+          <h2>Christine — Live Session</h2>
+          <div class="chat-channels">
+            <button class="chan-btn active" data-chan="web_chat">Web</button>
+            <button class="chan-btn" data-chan="sms">SMS</button>
+            <button class="chan-btn" data-chan="email">Email</button>
+          </div>
+        </div>
+        <div class="messages" id="messages">
+          <div class="empty" id="empty">
+            Start a conversation to watch Christine work.
+            <div class="quick">
+              <button data-q="I need a 10x10 in Topeka this week. I'm Sam, 555-123-4567.">10x10 in Topeka, this week</button>
+              <button data-q="Do you have RV or boat parking?">RV / boat parking</button>
+              <button data-q="Someone broke into my unit.">Report a break-in</button>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <textarea id="input" rows="1" placeholder="Message Christine…"></textarea>
+          <button class="send" id="send" title="Send">➤</button>
+        </div>
+      </section>
 
-        <main class="detail" id="detail">
+      <!-- RIGHT: ops console tracking Christine's logic -->
+      <section class="col">
+        <div class="col-head">
+          <h2>Lead &amp; Process Tracker</h2>
+          <span class="hint" id="session-hint">session —</span>
+        </div>
+        <div class="console">
           <div class="header-row">
             <div>
-              <h2 class="customer-name" id="customer-name">Select a session</h2>
-              <div class="customer-phone" id="customer-phone">No session selected</div>
+              <h2 class="customer-name" id="customer-name">No active lead</h2>
+              <div class="customer-phone" id="customer-phone">Awaiting first message</div>
             </div>
-            <div class="tag" id="routing-tag">No tag</div>
+            <div class="tag cool" id="routing-tag">unrouted</div>
           </div>
 
           <div class="info-grid" id="info-grid"></div>
 
           <div class="section">
-            <h3>Conversation</h3>
-            <div id="messages"></div>
+            <h3>Tool Results</h3>
+            <div id="tools"><div class="tool"><div class="content">No tool calls yet.</div></div></div>
           </div>
 
           <div class="section">
-            <h3>Tool Results</h3>
-            <div id="tools"></div>
+            <h3>Routing &amp; Agent Events</h3>
+            <div id="events"><div class="event"><div class="content">No events yet.</div></div></div>
           </div>
-        </main>
-      </div>
+        </div>
+      </section>
     </div>
 
     <script>
-      const now = new Date().toISOString();
+      // ── CONFIG ──────────────────────────────────────────────
+      const WORKER_URL = "https://christine-proxy.prods-balustre-0h.workers.dev/chat";
+      const USE_MOCK = false; // set true to demo offline without the Worker
 
-      const sessions = [
-        {
-          session_id: "sess_001",
-          created_at: now,
-          updated_at: now,
-          channel: "widget",
-          customer_name: "Kerric",
-          customer_phone: "(555) 111-2222",
-          routing_tag: "RES_HOT",
-          lead: {
-            lead_id: "lead_001",
-            created_at: now,
-            contact_name: "Kerric",
-            contact_phone: "(555) 111-2222",
-            facility_id: "BSS-TOPEKA-001",
-            facility_name: "Better Self Storage Topeka",
-            metro: "Topeka",
-            state: "KS",
-            storage_type: "self_storage",
-            timing: "this week",
-            size: "10x10",
-            routing_tag: "RES_HOT",
-            source: "widget",
-            status: "sent_to_hubspot"
-          },
-          tool_results: [
-            {
-              tool_name: "lookup_location_data",
-              status: "ok",
-              source: "cubby_mock",
-              created_at: now,
-              message: "Resolved BSS-TOPEKA-001",
-              payload: { facility_id: "BSS-TOPEKA-001" }
-            },
-            {
-              tool_name: "check_unit_availability",
-              status: "ok",
-              source: "cubby_mock",
-              created_at: now,
-              message: "10x10 available",
-              payload: { available_units: 3, monthly_rate: 109 }
-            },
-            {
-              tool_name: "hubspot.create_lead",
-              status: "ok",
-              source: "hubspot",
-              created_at: now,
-              message: "Lead written to HubSpot",
-              payload: { lead_id: "lead_001" }
-            },
-            {
-              tool_name: "twilio.send_sms_confirmation",
-              status: "ok",
-              source: "twilio",
-              created_at: now,
-              message: "Confirmation sent to verified callback number",
-              payload: { phone: "(555) 111-2222" }
-            },
-            {
-              tool_name: "datadog.event",
-              status: "ok",
-              source: "datadog",
-              created_at: now,
-              message: "Lead session recorded",
-              payload: { tag: "RES_HOT" }
-            }
-          ],
-          messages: [
-            { role: "user", content: "Do you have a 10x10 in Topeka?", created_at: now },
-            { role: "assistant", content: "Yes — I found availability and can have someone reach out to you.", created_at: now }
-          ],
-          status: "open"
-        },
-        {
-          session_id: "sess_002",
-          created_at: now,
-          updated_at: now,
-          channel: "widget",
-          customer_name: "Rayan",
-          customer_phone: "(555) 333-4444",
-          routing_tag: "ESCALATE_SECURITY",
-          tool_results: [
-            {
-              tool_name: "flag_escalation",
-              status: "ok",
-              source: "system",
-              created_at: now,
-              message: "Security event flagged in Team View",
-              payload: { severity: "high" }
-            },
-            {
-              tool_name: "datadog.event",
-              status: "ok",
-              source: "datadog",
-              created_at: now,
-              message: "Escalation event recorded",
-              payload: { tag: "ESCALATE_SECURITY" }
-            }
-          ],
-          messages: [
-            { role: "user", content: "Someone broke into my unit.", created_at: now },
-            { role: "assistant", content: "I’m sorry that happened. I’m flagging this for the team now.", created_at: now }
-          ],
-          status: "escalated"
-        }
-      ];
+      // ── ROUTING METADATA (mirrors the Worker's tag universe) ──
+      const ROUTING = {
+        RES_HOT:           { label: "Hot Lead",  cls: "hot",  log: "🔥 RES_HOT — route to sales now" },
+        RES_WARM:          { label: "Warm Lead", cls: "warm", log: "→ RES_WARM — nurture & follow up" },
+        RES_COLD:          { label: "Browsing",  cls: "cool", log: "→ RES_COLD — browsing mode" },
+        RV_BOAT:           { label: "RV / Boat", cls: "cool", log: "🚐 RV_BOAT — vehicle specialist" },
+        COMMERCIAL:        { label: "Commercial",cls: "cool", log: "🏢 COMMERCIAL — commercial sales" },
+        ESCALATE_SECURITY: { label: "Security",  cls: "hot",  log: "🚨 ESCALATE_SECURITY — alert ops" },
+        ESCALATE_MANAGER:  { label: "Manager",   cls: "hot",  log: "⚠️ ESCALATE_MANAGER — manager follow-up" },
+      };
 
-      let selectedId = sessions[0]?.session_id || null;
+      // ── SESSION STATE ───────────────────────────────────────
+      const session = {
+        session_id: (crypto.randomUUID ? crypto.randomUUID() : "sess_" + Date.now()),
+        channel: "web_chat",
+        messages: [],        // {role, content}
+        lead: {},            // merged lead fields
+        routing_tag: null,
+        status: "open",
+        tool_results: [],
+        events: [],
+      };
 
-      function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, (c) => ({
-          "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-        }[c]));
+      const $ = (id) => document.getElementById(id);
+      const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+
+      function setConn() {
+        const dot = $("conn-dot"), txt = $("conn-text");
+        if (USE_MOCK) { dot.className = "dot mock"; txt.textContent = "Mock mode"; }
+        else { dot.className = "dot live"; txt.textContent = "Live · Worker connected"; }
+      }
+
+      // ── CHANNEL SWITCHER ────────────────────────────────────
+      document.querySelectorAll(".chan-btn").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".chan-btn").forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        session.channel = b.dataset.chan;
+        addEvent("channel", `Channel switched to ${b.dataset.chan}`);
+      }));
+
+      // ── RENDER: CHAT ────────────────────────────────────────
+      function addMessage(role, content) {
+        const e = $("empty"); if (e) e.remove();
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${role}`;
+        wrap.innerHTML = `<div class="who">${role === "assistant" ? "Christine" : "Customer"}</div><div>${escapeHtml(content)}</div>`;
+        $("messages").appendChild(wrap);
+        $("messages").scrollTop = $("messages").scrollHeight;
+      }
+      function showTyping() {
+        const t = document.createElement("div");
+        t.className = "typing"; t.id = "typing"; t.textContent = "Christine is typing…";
+        $("messages").appendChild(t); $("messages").scrollTop = $("messages").scrollHeight;
+      }
+      function hideTyping() { const t = $("typing"); if (t) t.remove(); }
+
+      // ── RENDER: CONSOLE ─────────────────────────────────────
+      function mergeLead(lead = {}) {
+        for (const [k, v] of Object.entries(lead)) if (v != null && v !== "") session.lead[k] = v;
+      }
+      function applyRouting(tag) {
+        if (!tag || !ROUTING[tag]) return;
+        session.routing_tag = tag;
+        session.status = tag.startsWith("ESCALATE") ? "escalated" : "open";
+        const cfg = ROUTING[tag];
+        const el = $("routing-tag");
+        el.className = `tag ${cfg.cls}`;
+        el.textContent = cfg.label + " · " + tag;
+        addEvent("routing", cfg.log, cfg.cls);
+      }
+      function addTool(t) {
+        session.tool_results.push({ ...t, created_at: new Date().toISOString() });
+      }
+      function addEvent(type, message, cls = "") {
+        session.events.push({ type, message, cls, created_at: new Date().toISOString() });
+      }
+
+      function renderConsole() {
+        $("session-hint").textContent = "session " + session.session_id.slice(0, 8);
+        $("customer-name").textContent = session.lead.contact_name || session.lead.customer_name || "No active lead";
+        $("customer-phone").textContent = session.lead.contact_phone || "Awaiting contact info";
+
+        const info = [
+          ["Facility", session.lead.facility_name],
+          ["Metro", session.lead.metro],
+          ["Storage Type", session.lead.storage_type],
+          ["Size", session.lead.size],
+          ["Timing", session.lead.timing],
+          ["Email", session.lead.contact_email],
+          ["Routing Tag", session.routing_tag],
+          ["Session Status", session.status],
+        ];
+        $("info-grid").innerHTML = info.map(([l, v]) => `
+          <div class="info"><div class="info-label">${escapeHtml(l)}</div><div class="info-value">${escapeHtml(v || "—")}</div></div>
+        `).join("");
+
+        $("tools").innerHTML = session.tool_results.length
+          ? session.tool_results.slice().reverse().map(t => `
+              <div class="tool">
+                <div class="tool-head">
+                  <div><span class="tool-name">${escapeHtml(t.tool_name)}</span> <span class="tool-src">· ${escapeHtml(t.source || "—")}</span></div>
+                  <span class="status ${escapeHtml(t.status)}">${escapeHtml(t.status)}</span>
+                </div>
+                <div class="content">${escapeHtml(t.message || t.error || "—")}</div>
+                ${t.payload && Object.keys(t.payload).length ? `<pre>${escapeHtml(JSON.stringify(t.payload, null, 2))}</pre>` : ""}
+              </div>`).join("")
+          : `<div class="tool"><div class="content">No tool calls yet.</div></div>`;
+
+        $("events").innerHTML = session.events.length
+          ? session.events.slice().reverse().map(e => `
+              <div class="event">
+                <div class="event-time">${escapeHtml(e.created_at)} · ${escapeHtml(e.type)}</div>
+                <div class="content log"><span class="${escapeHtml(e.cls)}">${escapeHtml(e.message)}</span></div>
+              </div>`).join("")
+          : `<div class="event"><div class="content">No events yet.</div></div>`;
+
+        renderMetrics();
       }
 
       function renderMetrics() {
-        document.getElementById("m-sessions").textContent = sessions.length;
-        document.getElementById("m-leads").textContent = sessions.filter(s => s.lead).length;
-        document.getElementById("m-escalations").textContent = sessions.filter(s => s.status === "escalated").length;
-        document.getElementById("m-sms").textContent = sessions.filter(s => s.tool_results.some(t => t.tool_name === "twilio.send_sms_confirmation" && t.status === "ok")).length;
+        $("m-turns").textContent = session.messages.length;
+        $("m-tools").textContent = session.tool_results.length;
+        $("m-leads").textContent = session.tool_results.some(t => t.tool_name === "hubspot.create_lead" && (t.status === "ok" || t.status === "duplicate" || t.status === "mock")) ? 1 : 0;
+        $("m-escalations").textContent = session.status === "escalated" ? 1 : 0;
+        $("m-sms").textContent = session.tool_results.filter(t => t.tool_name === "sms.confirmation" && t.status === "ok").length;
       }
 
-      function renderList() {
-        const el = document.getElementById("session-list");
-        el.innerHTML = sessions.map(s => `
-          <button class="session-btn ${s.session_id === selectedId ? "active" : ""}" data-session="${s.session_id}">
-            <div class="session-name">${escapeHtml(s.customer_name || "Unnamed lead")}</div>
-            <div class="session-tag">${escapeHtml(s.routing_tag || "unrouted")} · ${escapeHtml(s.status)}</div>
-          </button>
-        `).join("");
-
-        el.querySelectorAll("[data-session]").forEach(btn => {
-          btn.addEventListener("click", () => {
-            selectedId = btn.getAttribute("data-session");
-            renderAll();
-          });
+      // ── WORKER CALL ─────────────────────────────────────────
+      async function callWorker(text) {
+        if (USE_MOCK) return mockWorker(text);
+        const res = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            session_id: session.session_id,
+            channel: session.channel,
+            history: session.messages,
+            context: session.lead,
+          }),
         });
+        if (!res.ok) throw new Error(`Worker ${res.status}`);
+        return res.json();
       }
 
-      function renderDetail() {
-        const s = sessions.find(x => x.session_id === selectedId) || sessions[0];
-        if (!s) return;
-
-        document.getElementById("customer-name").textContent = s.customer_name || "Unnamed lead";
-        document.getElementById("customer-phone").textContent = s.customer_phone || "No phone";
-        document.getElementById("routing-tag").textContent = s.routing_tag || "No tag";
-
-        const info = [
-          ["Facility", s.lead?.facility_name || "—"],
-          ["Metro", s.lead?.metro || "—"],
-          ["Storage Type", s.lead?.storage_type || "—"],
-          ["Timing", s.lead?.timing || "—"],
-          ["Lead Status", s.lead?.status || "—"],
-          ["Session Status", s.status || "—"],
-        ];
-        document.getElementById("info-grid").innerHTML = info.map(([label, value]) => `
-          <div class="info">
-            <div class="info-label">${escapeHtml(label)}</div>
-            <div class="info-value">${escapeHtml(value)}</div>
-          </div>
-        `).join("");
-
-        document.getElementById("messages").innerHTML = s.messages.map(m => `
-          <div class="message">
-            <div class="role">${escapeHtml(m.role)}</div>
-            <div class="content">${escapeHtml(m.content)}</div>
-          </div>
-        `).join("");
-
-        document.getElementById("tools").innerHTML = s.tool_results.length ? s.tool_results.map(t => `
-          <div class="tool">
-            <div class="tool-head">
-              <div><strong>${escapeHtml(t.tool_name)}</strong></div>
-              <div class="status ${escapeHtml(t.status)}">${escapeHtml(t.status)}</div>
-            </div>
-            <div class="content">${escapeHtml(t.message || t.error || "—")}</div>
-            ${t.payload ? `<pre>${escapeHtml(JSON.stringify(t.payload, null, 2))}</pre>` : ""}
-          </div>
-        `).join("") : `<div class="tool">No tool calls yet.</div>`;
+      // Offline fallback so the page still demos without the Worker.
+      function mockWorker(text) {
+        const l = text.toLowerCase();
+        return new Promise(r => setTimeout(() => {
+          if (/broke|break.?in|stolen|theft/.test(l))
+            r({ reply: "I'm so sorry — I'm flagging this for our ops team now. If anyone is in danger, call 911.", routing_tag: "ESCALATE_SECURITY", lead: {}, tool_results: [{ tool_name: "anthropic.messages", status: "ok", source: "anthropic", message: "Response generated" }] });
+          else if (/rv|boat|trailer/.test(l))
+            r({ reply: "Yes — we offer covered and uncovered RV/boat parking. Which metro are you near?", routing_tag: "RV_BOAT", lead: { storage_type: "vehicle" }, tool_results: [{ tool_name: "anthropic.messages", status: "ok", source: "anthropic", message: "Response generated" }] });
+          else
+            r({ reply: "Great — I can get someone to reach out this week. Confirming your details now.", routing_tag: "RES_HOT", lead: { facility_name: "Better Self Storage Topeka", metro: "Topeka", state: "KS", size: "10x10", timing: "this week", storage_type: "self_storage", contact_name: "Sam", contact_phone: "555-123-4567" }, tool_results: [
+              { tool_name: "anthropic.messages", status: "ok", source: "anthropic", message: "Response generated" },
+              { tool_name: "hubspot.create_lead", status: "ok", source: "hubspot", message: "Lead written to HubSpot", payload: { contact_id: "demo_001" } },
+              { tool_name: "sms.confirmation", status: "ok", source: "twilio_mock", message: "Hi Sam, thanks for reaching out to Better Self Storage. A team member will follow up shortly." },
+            ] });
+        }, 650));
       }
 
-      function renderAll() {
-        renderMetrics();
-        renderList();
-        renderDetail();
+      // ── SEND FLOW ───────────────────────────────────────────
+      async function send(text) {
+        text = (text || "").trim();
+        if (!text) return;
+        $("send").disabled = true;
+
+        addMessage("user", text);
+        session.messages.push({ role: "user", content: text });
+        addEvent("message.user", `Customer: "${text.slice(0, 60)}${text.length > 60 ? "…" : ""}"`);
+        renderConsole();
+        showTyping();
+
+        try {
+          const data = await callWorker(text);
+          hideTyping();
+
+          mergeLead(data.lead || {});
+          if (data.routing_tag) applyRouting(data.routing_tag);
+          (data.tool_results || []).forEach(addTool);
+
+          const reply = data.reply || "(no reply)";
+          session.messages.push({ role: "assistant", content: reply });
+          addMessage("assistant", reply);
+          addEvent("message.agent", `Christine responded — ${session.messages.length} turns`);
+        } catch (err) {
+          hideTyping();
+          addMessage("assistant", "Connection issue — please try again in a moment.");
+          addEvent("error", err.message, "hot");
+        }
+
+        renderConsole();
+        $("send").disabled = false;
+        $("input").focus();
       }
 
-      renderAll();
+      // ── WIRING ──────────────────────────────────────────────
+      $("send").addEventListener("click", () => { const v = $("input").value; $("input").value = ""; send(v); });
+      $("input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); const v = $("input").value; $("input").value = ""; send(v); }
+      });
+      $("input").addEventListener("input", function () { this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 120) + "px"; });
+      document.addEventListener("click", (e) => { const q = e.target.closest("[data-q]"); if (q) send(q.dataset.q); });
+
+      setConn();
+      renderConsole();
     </script>
   </body>
 </html>
