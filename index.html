@@ -46,9 +46,6 @@
       .col-head h2 { margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 500; }
       .col-head .hint { color: var(--text-soft); font-size: 12px; }
 
-      .chat-channels { display: flex; gap: 4px; }
-      .chan-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--text-soft); font-family: var(--font-body); }
-      .chan-btn.active { border-color: var(--forest); color: var(--cream); background: var(--forest); }
       .messages { flex: 1; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
       .msg { max-width: 84%; padding: 11px 14px; border-radius: 16px; font-size: 14px; line-height: 1.55; }
       .msg.user { align-self: flex-end; background: var(--forest); color: var(--cream); border-bottom-right-radius: 5px; }
@@ -126,11 +123,6 @@
       <section class="col">
         <div class="col-head">
           <h2>Christine — Live Session</h2>
-          <div class="chat-channels">
-            <button class="chan-btn active" data-chan="web_chat">Web</button>
-            <button class="chan-btn" data-chan="sms">SMS</button>
-            <button class="chan-btn" data-chan="email">Email</button>
-          </div>
         </div>
         <div class="messages" id="messages">
           <div class="empty" id="empty">
@@ -214,19 +206,10 @@
         else { dot.className = "dot live"; txt.textContent = "Live · Worker connected"; }
       }
 
-      // Still flip the connection dot on an Anthropic error, but no banner.
       function diagnose(toolResults = []) {
         const anthropicErr = toolResults.find(t => t.source === "anthropic" && t.status === "error");
         if (anthropicErr) { degraded = true; setConn(); }
       }
-
-      document.querySelectorAll(".chan-btn").forEach(b => b.addEventListener("click", () => {
-        document.querySelectorAll(".chan-btn").forEach(x => x.classList.remove("active"));
-        b.classList.add("active");
-        session.channel = b.dataset.chan;
-        addEvent("channel", `Channel switched to ${b.dataset.chan}`);
-        renderConsole();
-      }));
 
       function addMessage(role, content) {
         const e = $("empty"); if (e) e.remove();
