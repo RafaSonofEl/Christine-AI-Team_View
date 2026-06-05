@@ -14,7 +14,6 @@
         --cream:#F7F4EE; --panel:#FBF9F5; --panel-alt:#F3EEE4; --line:#DED6C7;
         --text:#2C2924; --text-soft:#6A645B; --text-faint:#A79E90;
         --forest:#2F5D46; --forest-deep:#214332; --forest-light:#4A7A62; --gold:#C89A43;
-        /* status accents tuned for a light background */
         --good:#2E7D52; --good-bg:#E4F0E8;
         --warn:#B07D1E; --warn-bg:#F7EFDD;
         --bad:#C0492F;  --bad-bg:#FBE6DF;
@@ -36,12 +35,6 @@
       .dot.mock { background: var(--warn); }
       .dot.degraded { background: var(--bad); box-shadow: 0 0 8px var(--bad); }
 
-      /* worker error banner */
-      .banner { margin: 14px 22px 0; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; display: none; }
-      .banner.show { display: block; }
-      .banner.error { background: var(--bad-bg); border: 1px solid var(--bad); color: #7a2a18; }
-      .banner code { background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
-
       .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 22px; }
       .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
       .metric-label { color: var(--text-soft); font-size: 12px; }
@@ -53,7 +46,6 @@
       .col-head h2 { margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 500; }
       .col-head .hint { color: var(--text-soft); font-size: 12px; }
 
-      /* CHAT */
       .chat-channels { display: flex; gap: 4px; }
       .chan-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--text-soft); font-family: var(--font-body); }
       .chan-btn.active { border-color: var(--forest); color: var(--cream); background: var(--forest); }
@@ -75,7 +67,6 @@
       .input-row button.send:hover { background: var(--forest-deep); }
       .input-row button.send:disabled { opacity: .5; cursor: not-allowed; }
 
-      /* CONSOLE */
       .console { flex: 1; overflow: auto; padding: 16px; }
       .header-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
       .customer-name { font-family: var(--font-display); font-size: 20px; font-weight: 500; margin: 0; }
@@ -123,8 +114,6 @@
       <div class="conn"><span class="dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></div>
     </div>
 
-    <div class="banner error" id="banner"></div>
-
     <div class="metrics">
       <div class="card"><div class="metric-label">Turns</div><div class="metric-value" id="m-turns">0</div></div>
       <div class="card"><div class="metric-label">Tool Calls</div><div class="metric-value" id="m-tools">0</div></div>
@@ -134,7 +123,6 @@
     </div>
 
     <div class="layout">
-      <!-- LEFT: live Christine chat -->
       <section class="col">
         <div class="col-head">
           <h2>Christine — Live Session</h2>
@@ -161,7 +149,6 @@
         </div>
       </section>
 
-      <!-- RIGHT: ops console -->
       <section class="col">
         <div class="col-head">
           <h2>Lead &amp; Process Tracker</h2>
@@ -192,9 +179,8 @@
     </div>
 
     <script>
-      // ── CONFIG ──────────────────────────────────────────────
       const WORKER_URL = "https://christine-proxy.prods-balustre-0h.workers.dev/chat";
-      const USE_MOCK = false; // set true to demo offline without the Worker
+      const USE_MOCK = false;
 
       const ROUTING = {
         RES_HOT:           { label: "Hot Lead",  cls: "hot",  log: "🔥 RES_HOT — route to sales now" },
@@ -228,21 +214,10 @@
         else { dot.className = "dot live"; txt.textContent = "Live · Worker connected"; }
       }
 
+      // Still flip the connection dot on an Anthropic error, but no banner.
       function diagnose(toolResults = []) {
-        const b = $("banner");
         const anthropicErr = toolResults.find(t => t.source === "anthropic" && t.status === "error");
-        if (!anthropicErr) return;
-        degraded = true; setConn();
-        const code = anthropicErr.payload && anthropicErr.payload.code;
-        let msg;
-        if (code === 404) {
-          msg = `<strong>Anthropic 404 — model not found.</strong> The worker reached Anthropic but the request was rejected. Fix in <code>christine-proxy</code>: verify the <code>model</code> ID (e.g. <code>claude-3-5-sonnet-20241022</code>) and that the URL is exactly <code>https://api.anthropic.com/v1/messages</code>.`;
-        } else if (code === 401 || code === 403) {
-          msg = `<strong>Anthropic ${code} — auth error.</strong> Check the <code>ANTHROPIC_API_KEY</code> secret on the worker.`;
-        } else {
-          msg = `<strong>Model call failed${code ? ` (${code})` : ""}.</strong> ${escapeHtml(anthropicErr.message || "Check worker logs via wrangler tail.")}`;
-        }
-        b.innerHTML = msg; b.classList.add("show");
+        if (anthropicErr) { degraded = true; setConn(); }
       }
 
       document.querySelectorAll(".chan-btn").forEach(b => b.addEventListener("click", () => {
@@ -397,8 +372,6 @@
         } catch (err) {
           hideTyping();
           degraded = true; setConn();
-          $("banner").innerHTML = `<strong>Worker unreachable.</strong> ${escapeHtml(err.message)} — check the worker URL and CORS for this origin.`;
-          $("banner").classList.add("show");
           addMessage("assistant", "Connection issue — please try again in a moment.");
           addEvent("error", err.message, "hot");
         }
